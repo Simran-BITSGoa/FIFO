@@ -1,0 +1,14 @@
+QuestaSim vlog 2025.1 Compiler 2025.01 Jan 18 2025
+Start time: 02:30:51 on Mar 12,2025
+vlog -sv -lint dut.sv 
+-- Compiling module fifo1
+-- Compiling module fifomem
+-- Compiling module sync_r2w
+-- Compiling module sync_w2r
+-- Compiling module rptr_empty
+-- Compiling module wptr_full
+
+Top level modules:
+	fifo1
+End time: 02:30:51 on Mar 12,2025, Elapsed time: 0:00:00
+Errors: 0, Warnings: 0

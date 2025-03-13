@@ -33,17 +33,14 @@ module fifomem #(parameter DATASIZE = 80, // Memory data word width
    input  [ADDRSIZE-1:0] waddr, raddr,
    input                 wclken, wfull, wclk);
   
-  `ifdef VENDORRAM // instantiation of a vendor's dual-port RAM
-  vendor_ram mem (.dout(rdata), .din(wdata), .waddr(waddr), .raddr(raddr), .wclken(wclken), .wclken_n(wfull), .clk(wclk));
-  `else // RTL Verilog memory model
-  localparam DEPTH = 1<<ADDRSIZE;
+  // RTL Verilog memory model (No vendor-specific RAM)
+  localparam DEPTH = 1 << ADDRSIZE;
   reg [DATASIZE-1:0] mem [0:DEPTH-1]; 
   
   assign rdata = mem[raddr]; 
   
   always @(posedge wclk) 
     if (wclken && !wfull) mem[waddr] <= wdata;
-  `endif
   
 endmodule
 
@@ -56,10 +53,9 @@ module sync_r2w #(parameter ADDRSIZE = 6)
   
   reg [ADDRSIZE:0] wq1_rptr; 
   
-  always @(posedge wclk or negedge wrst_n) //begin
-    if (!wrst_n) {wq2_rptr,wq1_rptr} <= 0; 
-    else         {wq2_rptr,wq1_rptr} <= {wq1_rptr,rptr};  
-  //end
+  always @(posedge wclk or negedge wrst_n)
+    if (!wrst_n) {wq2_rptr, wq1_rptr} <= 0; 
+    else         {wq2_rptr, wq1_rptr} <= {wq1_rptr, rptr}; 
   
 endmodule
 
@@ -72,10 +68,9 @@ module sync_w2r #(parameter ADDRSIZE = 6)
   
   reg [ADDRSIZE:0] rq1_wptr; 
   
-  always @(posedge rclk or negedge rrst_n) //begin
-    if (!rrst_n) {rq2_wptr,rq1_wptr} <= 0; 
-    else         {rq2_wptr,rq1_wptr} <= {rq1_wptr,wptr}; 
-  //end
+  always @(posedge rclk or negedge rrst_n)
+    if (!rrst_n) {rq2_wptr, rq1_wptr} <= 0; 
+    else         {rq2_wptr, rq1_wptr} <= {rq1_wptr, wptr}; 
   
 endmodule
 
@@ -94,26 +89,24 @@ module rptr_empty #(parameter ADDRSIZE = 6)
   //-------------------
   // GRAYSTYLE2 pointer
   //-------------------
-  always @(posedge rclk or negedge rrst_n) //begin
+  always @(posedge rclk or negedge rrst_n)
     if (!rrst_n) {rbin, rptr} <= 0; 
     else         {rbin, rptr} <= {rbinnext, rgraynext}; 
-  //end
   
   // Memory read-address pointer (okay to use binary to address memory)
   assign raddr     = rbin[ADDRSIZE-1:0]; 
   
   assign rbinnext  = rbin + (rinc & ~rempty); 
-  assign rgraynext = (rbinnext>>1) ^ rbinnext; 
+  assign rgraynext = (rbinnext >> 1) ^ rbinnext; 
   
   //---------------------------------------------------------------
   // FIFO empty when the next rptr == synchronized wptr or on reset
   //---------------------------------------------------------------
   assign rempty_val = (rgraynext == rq2_wptr); 
   
-  always @(posedge rclk or negedge rrst_n) //begin
+  always @(posedge rclk or negedge rrst_n)
     if (!rrst_n) rempty <= 1'b1; 
     else         rempty <= rempty_val;
-  //end
   
 endmodule
 
@@ -124,30 +117,28 @@ module wptr_full #(parameter ADDRSIZE = 6)
    output     [ADDRSIZE-1:0] waddr, 
    output reg [ADDRSIZE  :0] wptr, 
    input      [ADDRSIZE  :0] wq2_rptr, 
-   input                     winc, wclk, wfull_val,wrst_n); 
+   input                     winc, wclk, wfull_val, wrst_n); 
   
   reg  [ADDRSIZE:0] wbin; 
   wire [ADDRSIZE:0] wgraynext, wbinnext; 
   
   // GRAYSTYLE2 pointer
-  always @(posedge wclk or negedge wrst_n) //begin
+  always @(posedge wclk or negedge wrst_n)
     if (!wrst_n) {wbin, wptr} <= 0; 
     else         {wbin, wptr} <= {wbinnext, wgraynext}; 
-  //end
   
   // Memory read-address pointer (okay to use binary to address memory)
   assign waddr     = wbin[ADDRSIZE-1:0]; 
   
   assign wbinnext  = wbin + (winc & ~wfull); 
-  assign wgraynext = (wbinnext>>1) ^ wbinnext; 
+  assign wgraynext = (wbinnext >> 1) ^ wbinnext; 
   
   //---------------------------------------------------------------
-  assign wfull_val = (wgraynext=={~wq2_rptr[ADDRSIZE:ADDRSIZE-1],
+  assign wfull_val = (wgraynext == {~wq2_rptr[ADDRSIZE:ADDRSIZE-1],
                                    wq2_rptr[ADDRSIZE-2:0]});
   
-  always @(posedge wclk or negedge wrst_n) //begin
+  always @(posedge wclk or negedge wrst_n)
     if (!wrst_n) wfull <= 1'b0; 
     else         wfull <= wfull_val;
-  //end
   
 endmodule
